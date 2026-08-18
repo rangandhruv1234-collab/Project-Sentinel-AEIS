@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+venv/
+*.pt
+sol_stage1/
+for claude/
+.claude/
+*.log
+*.mp4
+test*_manifest.json
+test*_results.jsonl

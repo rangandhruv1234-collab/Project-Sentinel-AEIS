@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sentinel Stage 1 Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0b0d10;
+    --panel: #14171b;
+    --panel-2: #1a1e23;
+    --line: #262b31;
+    --text: #e8e6e1;
+    --muted: #8b9099;
+    --accent: #d97a3f;     /* flag / anomaly */
+    --accent-dim: #6b4530;
+    --stable: #4fb6c9;     /* confirmed / stable */
+    --stable-dim: #2c4d54;
+    --danger: #e0553f;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    display:flex; flex-direction:column; min-height:100vh;
+  }
+  header{
+    padding:14px 20px; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  }
+  header h1{
+    font-size:15px; font-weight:700; margin:0; letter-spacing:0.02em;
+    text-transform:uppercase; color:var(--text);
+  }
+  header h1 span{color:var(--accent);}
+  .filebar{display:flex; gap:10px; margin-left:auto; flex-wrap:wrap;}
+  .filebtn{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    padding:8px 14px; border-radius:6px; font-size:12px; font-weight:500;
+    cursor:pointer; display:flex; align-items:center; gap:8px;
+  }
+  .filebtn:hover{border-color:var(--stable);}
+  .filebtn.loaded{border-color:var(--stable); color:var(--stable);}
+  .filebtn input{display:none;}
+  .dot{width:6px; height:6px; border-radius:50%; background:var(--muted);}
+  .filebtn.loaded .dot{background:var(--stable);}
+  .expinput{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    padding:8px 12px; border-radius:6px; font-size:12px; font-family:'Inter',sans-serif;
+    outline:none;
+  }
+  .expinput:focus{border-color:var(--stable);}
+  .expinput::placeholder{color:var(--muted);}
+
+  main{flex:1; display:flex; min-height:0;}
+  .stage{flex:1 1 65%; display:flex; flex-direction:column; padding:20px; min-width:0; overflow-y:auto;}
+  .videowrap{
+    position:relative; background:#000; border-radius:8px; overflow:hidden;
+    border:1px solid var(--line); flex:1; display:flex; align-items:center; justify-content:center;
+    min-height:380px; flex-shrink:0;
+  }
+  .videowrap video{max-width:100%; max-height:100%; display:block;}
+  .videowrap canvas{position:absolute; top:0; left:0; pointer-events:none;}
+  .empty-state{
+    color:var(--muted); font-size:13px; text-align:center; padding:40px;
+    line-height:1.6;
+  }
+  .empty-state b{color:var(--text);}
+
+  .controls{
+    display:flex; align-items:center; gap:12px; padding:12px 4px 4px;
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted);
+  }
+  .controls button{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    width:32px; height:32px; border-radius:6px; cursor:pointer; font-size:14px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .controls button:hover{border-color:var(--stable); color:var(--stable);}
+  .controls input[type=range]{flex:1; accent-color:var(--accent);}
+  .frameinfo{white-space:nowrap;}
+
+  .timeline{
+    margin-top:14px; border:1px solid var(--line); border-radius:8px;
+    background:var(--panel); padding:10px 12px;
+  }
+  .timeline-label{
+    font-size:10px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--muted); margin-bottom:8px; display:flex; justify-content:space-between;
+  }
+  .timeline-label .k{color:var(--accent);}
+  #timelineCanvas{width:100%; display:block; cursor:pointer; border-radius:4px;}
+
+  aside{
+    flex:1 1 35%; max-width:420px; border-left:1px solid var(--line);
+    display:flex; flex-direction:column; min-height:0;
+  }
+  .side-head{
+    padding:16px 18px 10px; border-bottom:1px solid var(--line);
+  }
+  .side-head h2{font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin:0 0 4px;}
+  .side-head .summary{font-size:12px; color:var(--text); font-family:'JetBrains Mono',monospace;}
+  .side-head .summary b{color:var(--accent);}
+  .tracklist{flex:1; overflow-y:auto; padding:8px 12px;}
+  .trackcard{
+    background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    padding:12px 14px; margin-bottom:10px; cursor:pointer;
+  }
+  .trackcard:hover{border-color:var(--stable);}
+  .trackcard.active{border-color:var(--stable); background:var(--panel-2);}
+  .trackcard .row1{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
+  .swatch{width:10px; height:10px; border-radius:50%; flex-shrink:0;}
+  .tid{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted);}
+  .tclass{font-weight:600; font-size:13px; text-transform:capitalize;}
+  .flag{
+    margin-left:auto; font-size:9px; text-transform:uppercase; letter-spacing:0.05em;
+    padding:2px 7px; border-radius:10px; font-weight:700;
+  }
+  .flag.unstable{background:rgba(217,122,63,0.18); color:var(--accent);}
+  .flag.stable{background:rgba(79,182,201,0.15); color:var(--stable);}
+  .statrow{
+    display:flex; justify-content:space-between; font-size:11px;
+    font-family:'JetBrains Mono',monospace; color:var(--muted); margin-top:3px;
+  }
+  .statrow b{color:var(--text); font-weight:500;}
+  .classbar{display:flex; height:5px; border-radius:3px; overflow:hidden; margin-top:8px;}
+  .classbar div{height:100%;}
+
+  .tabs{display:flex; gap:6px; margin-top:10px;}
+  .tabbtn{
+    background:transparent; border:1px solid var(--line); color:var(--muted);
+    padding:6px 12px; border-radius:6px; font-size:11px; cursor:pointer; font-weight:500;
+  }
+  .tabbtn.active{border-color:var(--stable); color:var(--stable); background:rgba(79,182,201,0.1);}
+  .eventitem{
+    display:flex; gap:10px; padding:9px 10px; border-bottom:1px solid var(--line);
+    cursor:pointer; font-size:12px;
+  }
+  .eventitem:hover{background:var(--panel-2);}
+  .eventtime{
+    font-family:'JetBrains Mono',monospace; color:var(--muted); flex-shrink:0; width:56px;
+  }
+  .eventtext b{color:var(--accent);}
+  .memory-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted);
+    margin:4px 0 10px;
+  }
+  .memory-empty{
+    padding:16px; color:var(--muted); font-size:12px; line-height:1.6;
+  }
+  .memory-label{
+    font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em;
+    margin:9px 0 4px;
+  }
+  .memory-list{
+    margin:0; padding-left:16px; color:var(--text); font-size:11px; line-height:1.55;
+  }
+  .memory-list li{margin:2px 0;}
+  .memory-code{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text);
+    background:var(--panel-2); border:1px solid var(--line); border-radius:6px;
+    padding:8px; line-height:1.55; overflow-wrap:anywhere;
+  }
+  .memory-event{
+    border-left:2px solid var(--accent); padding:5px 0 5px 8px; margin:5px 0;
+    font-size:11px; line-height:1.45; color:var(--text);
+  }
+  .memory-event .eventtime{display:inline-block; width:auto; margin-right:6px;}
+
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px;}
+
+  #reportView{display:none;}
+
+  @media print{
+    body *{visibility:hidden;}
+    #reportView, #reportView *{visibility:visible;}
+    body{margin:0; padding:0;}
+    #reportView{
+      display:block; width:100%;
+      background:#fff; color:#111; font-family:'Inter',sans-serif; padding:10px 4px;
+    }
+    #reportView h1{font-size:22px; margin:0 0 2px; color:#111;}
+    #reportView .repMeta{font-size:12px; color:#555; margin-bottom:20px;}
+    #reportView h2{font-size:14px; margin:26px 0 8px; border-bottom:2px solid #d97a3f; padding-bottom:4px; color:#111;}
+    #reportView p{font-size:12.5px; line-height:1.7; color:#222; white-space:pre-wrap;}
+    #reportView table{width:100%; border-collapse:collapse; font-size:11px; margin-top:6px;}
+    #reportView th, #reportView td{border:1px solid #ccc; padding:6px 8px; text-align:left;}
+    #reportView th{background:#f2f2f2;}
+    #reportView img{max-width:100%; border:1px solid #ccc; margin-top:6px;}
+    #reportView .repEvent{font-size:11.5px; padding:4px 0; border-bottom:1px solid #eee;}
+    #reportView .repEvent b{color:#d97a3f;}
+  }
+/* ---- Theater mode: maximize video, float tabs top-right, slide panel over dimmed video ---- */
+#maximizeBtn{
+  position:absolute; top:10px; right:10px; z-index:20;
+  background:rgba(11,13,16,0.7); border:1px solid var(--line); color:var(--text);
+  width:34px; height:34px; border-radius:6px; font-size:16px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+#maximizeBtn:hover{border-color:var(--stable); color:var(--stable);}
+
+#theaterScrim{
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55);
+  z-index:998; cursor:pointer;
+}
+
+body.theater-mode{overflow:hidden;}
+body.theater-mode header{display:none;}
+body.theater-mode main{display:block;}
+body.theater-mode .stage{padding:0;}
+body.theater-mode .videowrap{
+  position:fixed; inset:0; z-index:997; border-radius:0; border:none;
+}
+body.theater-mode .controls{
+  position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+  z-index:999; background:rgba(11,13,16,0.85); border:1px solid var(--line);
+  border-radius:8px; padding:10px 16px; width:auto; min-width:420px;
+}
+body.theater-mode .timeline{display:none;}
+body.theater-mode #maximizeBtn{content:'⤢'; top:16px; left:16px; right:auto;}
+
+body.theater-mode aside{
+  position:fixed; top:0; right:-420px; bottom:0; width:420px; max-width:90vw;
+  z-index:999; transition:right 0.22s ease; padding-top:64px;
+  box-shadow:-10px 0 30px rgba(0,0,0,0.4);
+}
+body.theater-mode aside.panel-open{right:0;}
+body.theater-mode .tabs{
+  position:fixed; top:16px; right:16px; z-index:999;
+  margin-top:0; background:rgba(11,13,16,0.85); padding:6px; border-radius:8px;
+  border:1px solid var(--line);
+}
+body.theater-mode #closePanelBtn{
+  display:flex !important; align-items:center; justify-content:center;
+  width:26px; height:26px; border-radius:6px; border:1px solid var(--line);
+  background:var(--panel-2); color:var(--text); cursor:pointer; font-size:13px;
+}
+body.theater-mode.panel-active #theaterScrim{display:block;}
+</style>
+</head>
+<body>
+
+<div id="reportView"></div>
+
+<header>
+  <h1>Sentinel <span>/ Stage 1 Review</span></h1>
+  <div class="filebar">
+    <input type="text" id="expName" class="expinput" placeholder="Experiment name">
+    <input type="text" id="expNumber" class="expinput" style="max-width:90px;" placeholder="No.">
+    <label class="filebtn" id="videoBtn"><span class="dot"></span>Load video<input type="file" id="videoInput" accept="video/*"></label>
+    <label class="filebtn" id="jsonlBtn"><span class="dot"></span>Load detections (.jsonl)<input type="file" id="jsonlInput" accept=".jsonl,.txt,.json"></label>
+    <button class="filebtn" id="exportPdfBtn">Export PDF</button>
+  </div>
+</header>
+
+<main>
+  <div class="stage">
+    <div class="videowrap" id="videowrap">
+      <div class="empty-state" id="emptyState">
+        Load a video and its Stage 1 <b>.jsonl</b> output above.<br>
+        Boxes, track IDs, and class labels will be drawn directly on the footage,<br>
+        and every track's stability will show up on the right, no guessing from raw text.
+      </div>
+      <video id="video" style="display:none"></video>
+      <canvas id="overlay" style="display:none"></canvas>
+      <button id="maximizeBtn" title="Maximize video">⛶</button>
+    </div>
+    <div id="theaterScrim"></div>
+
+    <div class="controls">
+      <button id="playBtn">▶</button>
+      <button id="stepBack">◀</button>
+      <button id="stepFwd">▶|</button>
+      <input type="range" id="scrubber" min="0" max="1000" value="0" step="1">
+      <span class="frameinfo" id="frameInfo">frame — / — · t=—s</span>
+    </div>
+
+    <div class="timeline">
+      <div class="timeline-label">
+        <span>Detection coverage — <span class="k">green = detected, red = missed</span></span>
+        <span id="coverageMeta">no data loaded</span>
+      </div>
+      <canvas id="coverageCanvas" height="26"></canvas>
+    </div>
+
+    <div class="timeline">
+      <div class="timeline-label">
+        <span>Track timeline — <span class="k">orange ticks = class changed from track's dominant class</span></span>
+        <span id="timelineMeta">no data loaded</span>
+      </div>
+      <canvas id="timelineCanvas" height="90"></canvas>
+    </div>
+
+    <div class="timeline" id="analysisPanel">
+      <div class="timeline-label"><span>Analysis</span></div>
+      <div id="analysisText" style="font-size:12.5px; line-height:1.7; color:var(--text); white-space:pre-wrap;">Load a video and detections to generate an analysis.</div>
+    </div>
+  </div>
+
+  <aside id="sidePanel">
+    <div class="side-head">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+        <h2 style="margin:0;">Session summary</h2>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="copyBtn" class="filebtn" style="padding:6px 12px; font-size:11px;">Copy analysis</button>
+          <button id="closePanelBtn" style="display:none;" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="summary" id="sessionSummary">Load detection data to see track analytics.</div>
+      <div class="tabs">
+        <button class="tabbtn active" id="tabTracks">Tracks</button>
+        <button class="tabbtn" id="tabEvents">Events</button>
+        <button class="tabbtn" id="tabSceneMemory" style="display:none;">Scene Memory</button>
+        <button class="tabbtn" id="tabEscalations" style="display:none;">Sol Stage 1</button>
+      </div>
+    </div>
+    <div class="tracklist" id="tracklist"></div>
+    <div class="tracklist" id="eventlist" style="display:none;"></div>
+    <div class="tracklist" id="sceneMemoryList" style="display:none;"></div>
+    <div class="tracklist" id="escalationlist" style="display:none;"></div>
+  </aside>
+</main>
+
+<script>
+const videoInput = document.getElementById('videoInput');
+const jsonlInput = document.getElementById('jsonlInput');
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const octx = overlay.getContext('2d');
+const emptyState = document.getElementById('emptyState');
+const scrubber = document.getElementById('scrubber');
+const frameInfo = document.getElementById('frameInfo');
+const playBtn = document.getElementById('playBtn');
+const stepBack = document.getElementById('stepBack');
+const stepFwd = document.getElementById('stepFwd');
+const tracklist = document.getElementById('tracklist');
+const sessionSummary = document.getElementById('sessionSummary');
+const timelineCanvas = document.getElementById('timelineCanvas');
+const tctx = timelineCanvas.getContext('2d');
+const timelineMeta = document.getElementById('timelineMeta');
+const coverageCanvas = document.getElementById('coverageCanvas');
+const cctx = coverageCanvas.getContext('2d');
+const coverageMeta = document.getElementById('coverageMeta');
+const eventlist = document.getElementById('eventlist');
+const sceneMemoryList = document.getElementById('sceneMemoryList');
+const escalationlist = document.getElementById('escalationlist');
+const tabTracks = document.getElementById('tabTracks');
+const tabEvents = document.getElementById('tabEvents');
+const tabSceneMemory = document.getElementById('tabSceneMemory');
+const tabEscalations = document.getElementById('tabEscalations');
+let escalations = [];
+
+// The Sol Stage 1 prompt asks 6 questions in order, ending with the
+// actual "flag for review" recommendation (Q6). Earlier questions also
+// contain their own YES/NO answers, so the LAST match in the response
+// reflects the final recommendation, not the first.
+function isFlagged(response){
+  if(!response) return false;
+  const matches = response.match(/\b(YES|NO)\b/gi);
+  if(!matches || matches.length===0) return false;
+  return matches[matches.length-1].toUpperCase() === 'YES';
+}
+const analysisText = document.getElementById('analysisText');
+const copyBtn = document.getElementById('copyBtn');
+const exportPdfBtn = document.getElementById('exportPdfBtn');
+const expName = document.getElementById('expName');
+const expNumber = document.getElementById('expNumber');
+const reportView = document.getElementById('reportView');
+let events = [];
+
+let frames = [];        // parsed jsonl, sorted by frame_index
+let tracks = {};        // track_id -> { classCounts, frames:[{frame_index,timestamp_sec,class_name,confidence,bbox,centroid}], color }
+let fps = 30;
+let activeTrackId = null;
+let videoLoaded = false, dataLoaded = false;
+let hasSceneMemoryData = false;
+
+const PALETTE = ['#4fb6c9','#d97a3f','#9b8cd9','#7ec98f','#e0553f','#c9a24f','#5f9de0','#c96fa0','#8fd9c4','#d9c04f'];
+function colorFor(id){
+  const idx = Math.abs(hashCode(String(id))) % PALETTE.length;
+  return PALETTE[idx];
+}
+function hashCode(s){let h=0; for(let i=0;i<s.length;i++){h=(h<<5)-h+s.charCodeAt(i); h|=0;} return h;}
+
+function loadVideoFromBlob(blobUrl){
+  video.src = blobUrl;
+  video.style.display='block';
+  overlay.style.display='block';
+  emptyState.style.display='none';
+  document.getElementById('videoBtn').classList.add('loaded');
+  videoLoaded = true;
+  video.addEventListener('loadedmetadata', ()=>{
+    sizeOverlay();
+    scrubber.max = Math.floor(video.duration*1000);
+  }, {once:true});
+}
+
+function loadJsonlFromText(text){
+  parseJsonl(text);
+  document.getElementById('jsonlBtn').classList.add('loaded');
+  dataLoaded = true;
+  hasSceneMemoryData = frames.some(f=>!!f.scene_memory);
+  tabSceneMemory.style.display = hasSceneMemoryData ? 'inline-block' : 'none';
+  if(!hasSceneMemoryData && tabSceneMemory.classList.contains('active')){
+    switchTab({tab:tabTracks, list:tracklist});
+  }
+  buildTrackAnalytics();
+  renderTrackList();
+  drawTimeline();
+  drawCoverage();
+  generateEvents();
+  renderEventList();
+  renderSceneMemoryInspector();
+  renderAnalysisText();
+}
+
+videoInput.addEventListener('change', e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  loadVideoFromBlob(URL.createObjectURL(f));
+});
+
+jsonlInput.addEventListener('change', e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    loadJsonlFromText(ev.target.result);
+  };
+  reader.readAsText(f);
+});
+
+// Auto-load: if this page was opened by analyze.py with ?video=NAME&data=NAME
+// (and optionally &escalations=NAME) in the URL, fetch these files from the
+// local server automatically instead of waiting for manual file picker
+// clicks. Falls back to normal manual loading if these params aren't
+// present, nothing here breaks that path.
+(function autoLoadFromServer(){
+  const params = new URLSearchParams(window.location.search);
+  const videoName = params.get('video');
+  const dataName = params.get('data');
+  const escalationsName = params.get('escalations');
+  if(!videoName && !dataName) return; // opened normally, do nothing
+
+  if(videoName){
+    fetch(videoName)
+      .then(r => { if(!r.ok) throw new Error('video fetch failed: '+r.status); return r.blob(); })
+      .then(blob => loadVideoFromBlob(URL.createObjectURL(blob)))
+      .catch(err => console.error('Auto-load video failed:', err));
+  }
+  if(dataName){
+    fetch(dataName)
+      .then(r => { if(!r.ok) throw new Error('data fetch failed: '+r.status); return r.text(); })
+      .then(text => loadJsonlFromText(text))
+      .catch(err => console.error('Auto-load detections failed:', err));
+  }
+  if(escalationsName){
+    fetch(escalationsName)
+      .then(r => { if(!r.ok) throw new Error('escalations fetch failed: '+r.status); return r.json(); })
+      .then(records => loadEscalations(records))
+      .catch(err => console.error('Auto-load escalations failed:', err));
+  }
+})();
+
+function parseJsonl(text){
+  frames = text.split('\n').map(l=>l.trim()).filter(l=>l.length>0).map(l=>{
+    try { return JSON.parse(l); } catch(e){ return null; }
+  }).filter(Boolean);
+  frames.sort((a,b)=>a.frame_index-b.frame_index);
+  // infer fps from consecutive timestamps
+  if(frames.length>1){
+    // use median dt across first few frames, more robust than a single pair
+    const dts = [];
+    for(let i=1;i<Math.min(frames.length,20);i++){
+      const dt = frames[i].timestamp_sec - frames[i-1].timestamp_sec;
+      if(dt>0) dts.push(dt);
+    }
+    if(dts.length){
+      dts.sort((a,b)=>a-b);
+      const medianDt = dts[Math.floor(dts.length/2)];
+      const inferred = Math.round(1/medianDt);
+      if(inferred>0) fps = inferred;
+    }
+  }
+}
+
+function buildTrackAnalytics(){
+  tracks = {};
+  frames.forEach(f=>{
+    (f.detections||[]).forEach(d=>{
+      if(!tracks[d.track_id]){
+        tracks[d.track_id] = { id:d.track_id, color:colorFor(d.track_id), frames:[], classCounts:{} };
+      }
+      const t = tracks[d.track_id];
+      t.frames.push({
+        frame_index:f.frame_index, timestamp_sec:f.timestamp_sec,
+        class_name:d.class_name, confidence:d.confidence,
+        bbox:d.bbox_xyxy, centroid:d.centroid,
+        confirmation:d.confirmation || null,
+        viaReacquisition: d.via_reacquisition === true
+      });
+      t.classCounts[d.class_name] = (t.classCounts[d.class_name]||0)+1;
+    });
+  });
+  Object.values(tracks).forEach(t=>{
+    const entries = Object.entries(t.classCounts).sort((a,b)=>b[1]-a[1]);
+    t.totalFrames = t.frames.length;
+    t.firstFrame = t.frames[0].frame_index;
+    t.lastFrame = t.frames[t.frames.length-1].frame_index;
+    t.classSeen = entries.map(e=>({name:e[0], count:e[1]}));
+    t.reacquiredCount = t.frames.filter(f=>f.viaReacquisition).length;
+
+    // Read Stage 1's own confirmation layer as the single source of truth
+    // for WHICH class is trusted and whether the track is confirmed (this
+    // used to be recomputed from scratch here, which meant the browser
+    // could disagree with what Python already decided). Supports both the
+    // current nested {track,species} shape and the older flat
+    // {confirmed,confirmed_class} shape, and falls back to a local vote
+    // only for JSONL files with no confirmation layer at all.
+    const lastConf = t.frames[t.frames.length-1].confirmation;
+    if(lastConf && lastConf.species){
+      t.dominantClass = lastConf.species.guess;
+      t.currentReliability = lastConf.species.reliability; // live, recent-window snapshot at the last frame
+      t.trackConfirmed = lastConf.track.confirmed;
+      t.avgConfidence = lastConf.track.confidence;
+      t.hasConfirmationData = true;
+    } else if(lastConf && 'confirmed_class' in lastConf){
+      t.dominantClass = lastConf.confirmed_class;
+      t.currentReliability = lastConf.class_stability;
+      t.trackConfirmed = lastConf.confirmed;
+      t.avgConfidence = lastConf.avg_confidence;
+      t.hasConfirmationData = true;
+    } else {
+      t.dominantClass = entries[0][0];
+      t.currentReliability = entries[0][1] / t.totalFrames;
+      t.trackConfirmed = null;
+      t.avgConfidence = t.frames.reduce((s,x)=>s+x.confidence,0)/t.totalFrames;
+      t.hasConfirmationData = false;
+    }
+
+    // Primary reported number: all-time fraction of the track that agreed
+    // with the trusted species guess. This is a stable, representative
+    // summary (used in cards, analysis text, and PDF export), unlike a
+    // single frame's recent-window snapshot, which can look arbitrary
+    // depending on exactly where the track happened to end. The live,
+    // moment-to-moment score is still available as t.currentReliability
+    // for anything that wants to show trust building up in real time.
+    const agreeingFrames = t.frames.filter(f=>f.class_name===t.dominantClass).length;
+    t.stability = agreeingFrames / t.totalFrames;
+
+    t.minConfidence = Math.min(...t.frames.map(x=>x.confidence));
+    t.maxConfidence = Math.max(...t.frames.map(x=>x.confidence));
+    t.flickerEvents = t.frames.filter(x=>x.class_name!==t.dominantClass).length;
+    const c0 = t.frames[0].centroid, c1 = t.frames[t.frames.length-1].centroid;
+    t.netDisplacement = Math.hypot(c1[0]-c0[0], c1[1]-c0[1]);
+  });
+}
+
+function renderTrackList(){
+  const list = Object.values(tracks).sort((a,b)=>a.firstFrame-b.firstFrame);
+  const totalFrames = frames.length;
+  const withConfirmationData = list.filter(t=>t.hasConfirmationData);
+  const unconfirmed = withConfirmationData.filter(t=>t.trackConfirmed===false).length;
+  const summaryLabel = withConfirmationData.length>0
+    ? `<b>${unconfirmed}</b> not yet confirmed present`
+    : `<span style="color:var(--muted)">no confirmation data in this file</span>`;
+  sessionSummary.innerHTML = `<b>${totalFrames}</b> frames analyzed · <b>${list.length}</b> tracks · ${summaryLabel}`;
+
+  tracklist.innerHTML = '';
+  list.forEach(t=>{
+    const card = document.createElement('div');
+    card.className = 'trackcard';
+    card.dataset.trackId = t.id;
+    const durSec = ((t.lastFrame-t.firstFrame+1)/fps).toFixed(1);
+    const barSegs = t.classSeen.map(c=>{
+      const pct = (c.count/t.totalFrames*100).toFixed(1);
+      const col = c.name===t.dominantClass ? 'var(--stable)' : 'var(--accent)';
+      return `<div style="width:${pct}%; background:${col}" title="${c.name}: ${c.count} frames"></div>`;
+    }).join('');
+    const rawNow = t.frames[t.frames.length-1].class_name;
+    const rawDiffers = t.hasConfirmationData && rawNow !== t.dominantClass;
+
+    // Badge reflects PRESENCE (is this really, persistently there),
+    // never species agreement, that used to be the same overloaded flag.
+    let badgeHtml;
+    if(t.trackConfirmed === true) badgeHtml = `<span class="flag stable">track confirmed</span>`;
+    else if(t.trackConfirmed === false) badgeHtml = `<span class="flag unstable">not yet confirmed</span>`;
+    else badgeHtml = `<span class="flag unstable">no confirmation data</span>`;
+
+    card.innerHTML = `
+      <div class="row1">
+        <span class="swatch" style="background:${t.color}"></span>
+        <span class="tid">#${t.id}</span>
+        <span class="tclass">${t.dominantClass}</span>
+        ${badgeHtml}
+      </div>
+      ${rawDiffers ? `<div class="statrow"><span>raw label (now)</span><b style="color:var(--accent)">${rawNow}</b></div>` : ''}
+      <div class="statrow"><span>frames</span><b>${t.totalFrames} (${durSec}s)</b></div>
+      <div class="statrow"><span>species reliability (overall)</span><b>${(t.stability*100).toFixed(0)}%</b></div>
+      <div class="statrow"><span>species trust (current)</span><b>${(t.currentReliability*100).toFixed(0)}%</b></div>
+      <div class="statrow"><span>confidence</span><b>${t.minConfidence.toFixed(2)} – ${t.maxConfidence.toFixed(2)} (avg ${t.avgConfidence.toFixed(2)})</b></div>
+      <div class="statrow"><span>class switches</span><b>${t.flickerEvents}</b></div>
+      <div class="statrow"><span>net displacement</span><b>${t.netDisplacement.toFixed(0)}px</b></div>
+      ${t.reacquiredCount > 0 ? `<div class="statrow"><span>recovered via re-acquisition</span><b style="color:var(--stable)">${t.reacquiredCount} / ${t.totalFrames} frames</b></div>` : ''}
+      <div class="classbar">${barSegs}</div>
+    `;
+    card.addEventListener('click', ()=>{
+      activeTrackId = t.id;
+      document.querySelectorAll('.trackcard').forEach(c=>c.classList.remove('active'));
+      card.classList.add('active');
+      if(videoLoaded){ video.currentTime = t.frames[0].timestamp_sec; }
+    });
+    tracklist.appendChild(card);
+  });
+}
+
+function sizeOverlay(){
+  if(!video.videoWidth) return;
+  const rect = video.getBoundingClientRect();
+  overlay.width = video.videoWidth;
+  overlay.height = video.videoHeight;
+  overlay.style.width = rect.width+'px';
+  overlay.style.height = rect.height+'px';
+  overlay.style.left = (rect.left - videowrap.getBoundingClientRect().left)+'px';
+  overlay.style.top = (rect.top - videowrap.getBoundingClientRect().top)+'px';
+  drawOverlay();
+}
+const videowrap = document.getElementById('videowrap');
+const resizeObserver = new ResizeObserver(()=>{ if(videoLoaded) sizeOverlay(); });
+resizeObserver.observe(videowrap);
+window.addEventListener('resize', ()=>{ if(dataLoaded){ drawCoverage(); drawTimeline(); } });
+
+function findFrameForTime(t){
+  if(frames.length===0) return null;
+  const idx = Math.round(t*fps);
+  // binary-ish nearest search since frames sorted by frame_index
+  let lo=0, hi=frames.length-1;
+  if(idx<=frames[0].frame_index) return frames[0];
+  if(idx>=frames[hi].frame_index) return frames[hi];
+  while(lo<hi){
+    const mid=(lo+hi)>>1;
+    if(frames[mid].frame_index<idx) lo=mid+1; else hi=mid;
+  }
+  return frames[lo];
+}
+
+function drawOverlay(){
+  if(!videoLoaded) return;
+  octx.clearRect(0,0,overlay.width,overlay.height);
+  if(!dataLoaded){
+    renderSceneMemoryInspector();
+    return;
+  }
+  const f = findFrameForTime(video.currentTime);
+  if(!f) return;
+  frameInfo.textContent = `frame ${f.frame_index} / ${frames[frames.length-1].frame_index} · t=${f.timestamp_sec.toFixed(2)}s`;
+  (f.detections||[]).forEach(d=>{
+    const t = tracks[d.track_id];
+    const col = t ? t.color : '#888';
+    const [x1,y1,x2,y2] = d.bbox_xyxy;
+    const isOffDominant = t && d.class_name !== t.dominantClass;
+    const isReacquired = d.via_reacquisition === true;
+    octx.strokeStyle = isOffDominant ? '#e0553f' : col;
+    octx.lineWidth = 3;
+    octx.setLineDash(isReacquired ? [8, 5] : []);
+    octx.strokeRect(x1,y1,x2-x1,y2-y1);
+    octx.setLineDash([]);
+    // Show raw label and confirmed guess side by side when they differ,
+    // so the review tool never hides the disagreement between what YOLO
+    // said this exact frame and what the track's confirmed identity is.
+    // Reacquired detections get a "(recovered)" tag, since a box found by
+    // the local search is a meaningfully different event from a normal
+    // per-frame YOLO detection.
+    let label = (t && isOffDominant)
+      ? `#${d.track_id} ${d.class_name}→${t.dominantClass} ${(d.confidence*100).toFixed(0)}%`
+      : `#${d.track_id} ${d.class_name} ${(d.confidence*100).toFixed(0)}%`;
+    if(isReacquired) label += ' (recovered)';
+    octx.font = '600 15px Inter, sans-serif';
+    const tw = octx.measureText(label).width;
+    octx.fillStyle = isOffDominant ? '#e0553f' : col;
+    octx.fillRect(x1, y1-22, tw+12, 22);
+    octx.fillStyle = '#0b0d10';
+    octx.fillText(label, x1+6, y1-6);
+  });
+  renderSceneMemoryInspector();
+}
+
+video.addEventListener('timeupdate', ()=>{
+  drawOverlay();
+  if(!scrubberDragging) scrubber.value = Math.floor(video.currentTime*1000);
+});
+video.addEventListener('seeked', drawOverlay);
+video.addEventListener('loadeddata', drawOverlay);
+
+let scrubberDragging = false;
+scrubber.addEventListener('mousedown', ()=>scrubberDragging=true);
+scrubber.addEventListener('mouseup', ()=>scrubberDragging=false);
+scrubber.addEventListener('input', ()=>{
+  if(videoLoaded){ video.currentTime = scrubber.value/1000; }
+});
+
+playBtn.addEventListener('click', ()=>{
+  if(!videoLoaded) return;
+  if(video.paused){ video.play(); playBtn.textContent='❚❚'; }
+  else { video.pause(); playBtn.textContent='▶'; }
+});
+stepBack.addEventListener('click', ()=>{ if(videoLoaded) video.currentTime = Math.max(0, video.currentTime - 1/fps); });
+stepFwd.addEventListener('click', ()=>{ if(videoLoaded) video.currentTime = Math.min(video.duration, video.currentTime + 1/fps); });
+
+function drawTimeline(){
+  const list = Object.values(tracks).sort((a,b)=>a.firstFrame-b.firstFrame);
+  if(list.length===0) return;
+  const totalFrames = frames[frames.length-1].frame_index + 1;
+  const rect = timelineCanvas.getBoundingClientRect();
+  const W = rect.width, rowH = 18, pad=4;
+  timelineCanvas.width = W;
+  timelineCanvas.height = Math.max(90, list.length*rowH + pad*2);
+  tctx.clearRect(0,0,timelineCanvas.width, timelineCanvas.height);
+
+  timelineMeta.textContent = `${totalFrames} frames · ${list.length} tracks`;
+
+  list.forEach((t,row)=>{
+    const y = pad + row*rowH;
+    // lane background
+    tctx.fillStyle = '#1a1e23';
+    tctx.fillRect(0, y, W, rowH-3);
+    // active span
+    const x1 = (t.firstFrame/totalFrames)*W;
+    const x2 = (t.lastFrame/totalFrames)*W;
+    tctx.fillStyle = t.color+'55';
+    tctx.fillRect(x1, y, Math.max(2,x2-x1), rowH-3);
+    // per-frame ticks: flicker vs stable
+    t.frames.forEach(fr=>{
+      const x = (fr.frame_index/totalFrames)*W;
+      tctx.fillStyle = fr.class_name===t.dominantClass ? t.color : '#e0553f';
+      tctx.fillRect(x, y, 2, rowH-3);
+    });
+    // label
+    tctx.fillStyle = '#e8e6e1';
+    tctx.font = '600 10px JetBrains Mono, monospace';
+    tctx.fillText(`#${t.id} ${t.dominantClass}`, 4, y+rowH-7);
+  });
+}
+
+function drawCoverage(){
+  if(frames.length===0) return;
+  const totalFrames = frames[frames.length-1].frame_index + 1;
+  const rect = coverageCanvas.getBoundingClientRect();
+  const W = rect.width, H = 26;
+  coverageCanvas.width = W; coverageCanvas.height = H;
+  cctx.clearRect(0,0,W,H);
+  const present = new Set(frames.filter(f=>(f.detections||[]).length>0).map(f=>f.frame_index));
+  const missedFrames = totalFrames - present.size;
+  coverageMeta.textContent = `${present.size}/${totalFrames} frames with a detection · ${missedFrames} missed`;
+  for(let i=0;i<totalFrames;i++){
+    const x = (i/totalFrames)*W;
+    cctx.fillStyle = present.has(i) ? '#4fb6c9' : '#e0553f55';
+    cctx.fillRect(x, 0, Math.max(1, W/totalFrames), H);
+  }
+}
+
+function generateEvents(){
+  events = [];
+  const list = Object.values(tracks);
+  const CONF_DROP_THRESHOLD = 0.6;
+  list.forEach(t=>{
+    events.push({frame_index:t.firstFrame, timestamp_sec:t.frames[0].timestamp_sec,
+      text:`Track #${t.id} first detected as <b>${t.frames[0].class_name}</b>`});
+    let lastClass = t.frames[0].class_name;
+    let wasBelowThresh = t.frames[0].confidence < CONF_DROP_THRESHOLD;
+    let wasReacquired = t.frames[0].viaReacquisition;
+    for(let i=1;i<t.frames.length;i++){
+      const fr = t.frames[i];
+      if(fr.class_name !== lastClass){
+        events.push({frame_index:fr.frame_index, timestamp_sec:fr.timestamp_sec,
+          text:`Track #${t.id} class changed <b>${lastClass} → ${fr.class_name}</b>`});
+        lastClass = fr.class_name;
+      }
+      const belowNow = fr.confidence < CONF_DROP_THRESHOLD;
+      if(belowNow && !wasBelowThresh){
+        events.push({frame_index:fr.frame_index, timestamp_sec:fr.timestamp_sec,
+          text:`Track #${t.id} confidence dropped below ${CONF_DROP_THRESHOLD} (${fr.confidence.toFixed(2)})`});
+      }
+      wasBelowThresh = belowNow;
+      if(fr.viaReacquisition && !wasReacquired){
+        events.push({frame_index:fr.frame_index, timestamp_sec:fr.timestamp_sec,
+          text:`Track #${t.id} <b>recovered via local re-acquisition</b> after going quiet`});
+      }
+      wasReacquired = fr.viaReacquisition;
+    }
+    events.push({frame_index:t.lastFrame, timestamp_sec:t.frames[t.frames.length-1].timestamp_sec,
+      text:`Track #${t.id} last detected (${t.frames.length} frames total)`});
+  });
+  // detection gaps across the whole session (3+ consecutive empty frames)
+  let gapStart = null;
+  frames.forEach((f,i)=>{
+    const empty = (f.detections||[]).length===0;
+    if(empty && gapStart===null) gapStart = f;
+    if(!empty && gapStart!==null){
+      const gapLenFrames = f.frame_index - gapStart.frame_index;
+      if(gapLenFrames >= 3){
+        events.push({frame_index:gapStart.frame_index, timestamp_sec:gapStart.timestamp_sec,
+          text:`Detection lost for ${gapLenFrames} frames (${(gapLenFrames/fps).toFixed(1)}s)`});
+      }
+      gapStart = null;
+    }
+  });
+// The prompt asks 6 questions in order, ending with the actual "flag for
+// review" recommendation (Q6). Earlier questions also contain their own
+// YES/NO answers, so the LAST match in the response is what reflects the
+// final recommendation, not the first.
+escalations.forEach(r=>{
+    const flagged = isFlagged(r.response);
+    let label;
+    if(r.error) label = `error (${r.error.slice(0,40)})`;
+    else if(flagged) label = 'FLAGGED FOR REVIEW';
+    else if(r.response) label = 'not flagged';
+    else label = 'no response';
+    events.push({
+      frame_index: r.giveup_frame_index,
+      timestamp_sec: r.giveup_timestamp_sec,
+      text: `Track #${r.track_id} flagged by Sol Stage 1 — <b>${label}</b>`,
+    });
+  });
+  events.sort((a,b)=>a.frame_index-b.frame_index);
+}
+
+function renderEventList(){
+  eventlist.innerHTML = '';
+  if(events.length===0){
+    eventlist.innerHTML = '<div style="padding:16px; color:var(--muted); font-size:12px;">No events detected.</div>';
+    return;
+  }
+  events.forEach(ev=>{
+    const div = document.createElement('div');
+    div.className = 'eventitem';
+    const mm = Math.floor(ev.timestamp_sec/60), ss = (ev.timestamp_sec%60).toFixed(1);
+    div.innerHTML = `<span class="eventtime">${mm}:${ss.padStart(4,'0')}</span><span class="eventtext">${ev.text}</span>`;
+    div.addEventListener('click', ()=>{ if(videoLoaded) video.currentTime = ev.timestamp_sec; });
+    eventlist.appendChild(div);
+  });
+}
+
+function escapeHtml(value){
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'
+  }[ch]));
+}
+
+function formatPoint(point){
+  if(!point || point.length < 2) return 'none';
+  return `${Number(point[0]).toFixed(1)}, ${Number(point[1]).toFixed(1)}`;
+}
+
+function currentSceneMemoryFrame(){
+  if(frames.length===0) return null;
+  if(videoLoaded) return findFrameForTime(video.currentTime);
+  return frames[0];
+}
+
+function visibilityReasons(track){
+  if(Array.isArray(track.visibility_reason) && track.visibility_reason.length){
+    return track.visibility_reason;
+  }
+  const state = track.visibility || 'unknown';
+  const reasons = [];
+  if(state === 'visible') reasons.push('detection present on this frame');
+  if(state === 'recovered') reasons.push(`recovered after ${track.last_recovery_gap_frames || 0} missing frame(s)`);
+  if(state === 'recently_missing') reasons.push(`missing_frames=${track.missing_frames || 0}`);
+  if(state === 'recently_missing') reasons.push('below search threshold');
+  if(state === 'searching') reasons.push(`missing_frames=${track.missing_frames || 0}`);
+  if(state === 'searching') reasons.push('missing long enough for recovery/search logic');
+  if(state === 'lost') reasons.push(`missing_frames=${track.missing_frames || 0}`);
+  if(state === 'lost') reasons.push('missing exceeded passive lost threshold');
+  if(track.track_confirmed) reasons.push('track_confirmed=true');
+  else if(track.ever_confirmed) reasons.push('track was confirmed earlier');
+  if(track.predicted_centroid){
+    reasons.push(track.predicted_outside_frame ? 'predicted_position_outside_frame' : 'predicted_position_inside_frame');
+  }
+  if(track.near_frame_edge) reasons.push('near_frame_edge=true');
+  return reasons;
+}
+
+function renderHypotheses(track){
+  const entries = Object.entries(track.hypotheses || {});
+  if(entries.length===0){
+    return '<div class="memory-code" style="color:var(--muted)">No active loss hypotheses on this frame.</div>';
+  }
+  return entries.map(([name, h])=>{
+    const evidence = (h.evidence || []).map(e=>`<li>${escapeHtml(e)}</li>`).join('');
+    return `
+      <div class="memory-code" style="margin-bottom:6px;">
+        <b>${escapeHtml(name)}</b> · support ${h.support || (h.evidence||[]).length || 0}
+        <ul class="memory-list">${evidence || '<li>no evidence listed</li>'}</ul>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderSceneGraph(sceneMemory){
+  const edges = sceneMemory?.graph?.edges || [];
+  if(edges.length===0){
+    return '<div class="memory-code" style="color:var(--muted)">No graph relationships on this frame.</div>';
+  }
+  return `<div class="memory-code">${edges.map(edge =>
+    `${escapeHtml(edge.source)} → ${escapeHtml(edge.relationship)} → ${escapeHtml(edge.target)}`
+  ).join('<br>')}</div>`;
+}
+
+function renderMemoryEvents(sceneMemory){
+  const memoryEvents = sceneMemory?.events || [];
+  if(memoryEvents.length===0){
+    return '<div class="memory-code" style="color:var(--muted)">No SceneMemory events on this frame.</div>';
+  }
+  return memoryEvents.map(ev=>{
+    const mm = Math.floor((ev.timestamp_sec || 0)/60);
+    const ss = ((ev.timestamp_sec || 0)%60).toFixed(1);
+    const evidence = (ev.evidence || []).length
+      ? `<div style="color:var(--muted); margin-top:3px;">${ev.evidence.map(escapeHtml).join(', ')}</div>`
+      : '';
+    const causedBy = (ev.caused_by || []).length
+      ? `<div class="memory-label" style="margin-top:5px;">Caused by</div><ul class="memory-list">${ev.caused_by.map(c=>`<li>${escapeHtml(c)}</li>`).join('')}</ul>`
+      : '';
+    return `
+      <div class="memory-event">
+        <span class="eventtime">${mm}:${ss.padStart(4,'0')}</span>
+        <b>${escapeHtml(ev.event_type)}</b>${ev.track_id!=null ? ` · #${ev.track_id}` : ''}
+        <div>${escapeHtml(ev.message || '')}</div>
+        ${evidence}
+        ${causedBy}
+      </div>
+    `;
+  }).join('');
+}
+
+function renderSceneMemoryInspector(){
+  if(!sceneMemoryList) return;
+  if(!dataLoaded){
+    sceneMemoryList.innerHTML = '<div class="memory-empty">Load detection data to inspect SceneMemory.</div>';
+    return;
+  }
+  if(!hasSceneMemoryData){
+    sceneMemoryList.innerHTML = '<div class="memory-empty">This JSONL file does not contain SceneMemory data. Run Stage 1 without --no-scene-memory to generate it.</div>';
+    return;
+  }
+
+  const frame = currentSceneMemoryFrame();
+  const sceneMemory = frame?.scene_memory;
+  if(!frame || !sceneMemory){
+    sceneMemoryList.innerHTML = '<div class="memory-empty">No SceneMemory snapshot for the current frame.</div>';
+    return;
+  }
+
+  const memoryFrame = sceneMemory.frame || {};
+  const tracksHtml = (sceneMemory.tracks || []).map(track=>{
+    const state = track.visibility || 'unknown';
+    const stableState = state === 'visible' || state === 'recovered';
+    const reasons = visibilityReasons(track).map(r=>`<li>${escapeHtml(r)}</li>`).join('');
+    const transition = track.state_transition || {};
+    const transitionLabel = transition.from
+      ? `${transition.from} → ${transition.to || state}`
+      : `start → ${state}`;
+    const species = track.species_guess || track.raw_species || 'unknown';
+    return `
+      <div class="trackcard" style="cursor:default;">
+        <div class="row1">
+          <span class="swatch" style="background:${colorFor(track.track_id)}"></span>
+          <span class="tid">#${track.track_id}</span>
+          <span class="tclass">${escapeHtml(species)}</span>
+          <span class="flag ${stableState ? 'stable' : 'unstable'}">${escapeHtml(state)}</span>
+        </div>
+        <div class="statrow"><span>frames seen</span><b>${track.frames_seen ?? '—'}</b></div>
+        <div class="statrow"><span>missing frames</span><b>${track.missing_frames ?? 0}</b></div>
+        <div class="statrow"><span>velocity</span><b>${formatPoint(track.velocity_px_per_frame)} px/frame</b></div>
+        <div class="statrow"><span>predicted centroid</span><b>${formatPoint(track.predicted_centroid)}</b></div>
+        <div class="statrow"><span>track confirmed</span><b>${track.track_confirmed ? 'yes' : 'no'}</b></div>
+        <div class="statrow"><span>state transition</span><b style="color:${transition.valid === false ? 'var(--danger)' : 'var(--text)'}">${escapeHtml(transitionLabel)}</b></div>
+        ${transition.warning ? `<div class="memory-code" style="margin-top:6px; color:var(--danger)">${escapeHtml(transition.warning)}</div>` : ''}
+        <div class="memory-label">State reasons</div>
+        <ul class="memory-list">${reasons || '<li>no reasons derived</li>'}</ul>
+        <div class="memory-label">Hypotheses</div>
+        ${renderHypotheses(track)}
+      </div>
+    `;
+  }).join('');
+
+  sceneMemoryList.innerHTML = `
+    <div class="memory-head">
+      <span>Frame ${memoryFrame.index ?? frame.frame_index} · t=${Number(memoryFrame.timestamp_sec ?? frame.timestamp_sec).toFixed(2)}s</span>
+      <span>${sceneMemory.mode || 'shadow'} v${sceneMemory.version ?? 0}</span>
+    </div>
+    ${tracksHtml || '<div class="memory-empty">SceneMemory has no tracks yet on this frame.</div>'}
+    <div class="trackcard" style="cursor:default;">
+      <div class="row1"><span class="tclass">Scene Graph</span></div>
+      ${renderSceneGraph(sceneMemory)}
+    </div>
+    <div class="trackcard" style="cursor:default;">
+      <div class="row1"><span class="tclass">Current Frame Events</span></div>
+      ${renderMemoryEvents(sceneMemory)}
+    </div>
+  `;
+}
+
+function loadEscalations(records){
+  escalations = records || [];
+  if(escalations.length === 0) return;
+  tabEscalations.style.display = 'inline-block';
+  renderEscalationList();
+  // If detection data already finished loading before escalations arrived
+  // (fetch order isn't guaranteed), re-generate the event log so the
+  // escalation markers get merged into it too, not just their own tab.
+  if(dataLoaded){
+    generateEvents();
+    renderEventList();
+  }
+}
+
+function renderEscalationList(){
+  escalationlist.innerHTML = '';
+  escalations.forEach(r=>{
+    const flagged = isFlagged(r.response);
+    const card = document.createElement('div');
+    card.className = 'trackcard';
+    const mm1 = r.last_known_timestamp_sec!=null ? Math.floor(r.last_known_timestamp_sec/60) : null;
+    const ss1 = r.last_known_timestamp_sec!=null ? (r.last_known_timestamp_sec%60).toFixed(1) : null;
+    const mm2 = Math.floor(r.giveup_timestamp_sec/60), ss2 = (r.giveup_timestamp_sec%60).toFixed(1);
+
+    let badgeHtml;
+    if(r.error) badgeHtml = `<span class="flag unstable">API ERROR</span>`;
+    else if(flagged) badgeHtml = `<span class="flag unstable">FLAGGED FOR REVIEW</span>`;
+    else if(r.response) badgeHtml = `<span class="flag stable">not flagged</span>`;
+    else badgeHtml = `<span class="flag unstable">no response</span>`;
+
+    const imagesHtml = `
+      <div style="display:flex; gap:6px; margin:8px 0;">
+        <div style="flex:1;">
+          <div style="font-size:9px; color:var(--muted); text-transform:uppercase; margin-bottom:3px;">Last known good${mm1!=null ? ` (${mm1}:${ss1.padStart(4,'0')})` : ''}</div>
+          ${r.last_known_frame_path ? `<img src="${r.last_known_frame_path}" style="width:100%; border-radius:4px; border:1px solid var(--line);">` : `<div style="font-size:10px; color:var(--muted); padding:20px 0; text-align:center; border:1px dashed var(--line); border-radius:4px;">none available</div>`}
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:9px; color:var(--muted); text-transform:uppercase; margin-bottom:3px;">Search exhausted (${mm2}:${ss2.padStart(4,'0')})</div>
+          <img src="${r.giveup_frame_path}" style="width:100%; border-radius:4px; border:1px solid var(--line);">
+        </div>
+      </div>
+    `;
+
+    const responseHtml = r.response
+      ? `<div style="font-size:11.5px; line-height:1.6; color:var(--text); white-space:pre-wrap; background:var(--panel-2); border-radius:6px; padding:10px; margin-top:6px;">${r.response}</div>`
+      : `<div style="font-size:11.5px; color:var(--danger); margin-top:6px;">Request failed: ${r.error || 'unknown error'}</div>`;
+
+    card.innerHTML = `
+      <div class="row1">
+        <span class="swatch" style="background:${colorFor(r.track_id)}"></span>
+        <span class="tid">#${r.track_id}</span>
+        <span class="tclass">${r.species}</span>
+        ${badgeHtml}
+      </div>
+      <div class="statrow"><span>tracked before escalating</span><b>${r.duration_sec.toFixed(1)}s</b></div>
+      ${imagesHtml}
+      ${responseHtml}
+    `;
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', (e)=>{
+      if(e.target.tagName === 'IMG') return; // don't hijack image clicks
+      if(videoLoaded) video.currentTime = r.giveup_timestamp_sec;
+    });
+    escalationlist.appendChild(card);
+  });
+}
+
+function switchTab(active){
+  [tabTracks, tabEvents, tabSceneMemory, tabEscalations].forEach(b=>b.classList.remove('active'));
+  [tracklist, eventlist, sceneMemoryList, escalationlist].forEach(el=>el.style.display='none');
+  active.tab.classList.add('active');
+  active.list.style.display='block';
+  if(active.list === sceneMemoryList) renderSceneMemoryInspector();
+}
+
+const sidePanel = document.getElementById('sidePanel');
+const maximizeBtn = document.getElementById('maximizeBtn');
+const theaterScrim = document.getElementById('theaterScrim');
+const closePanelBtn = document.getElementById('closePanelBtn');
+let theaterPanelOpen = false;
+
+function theaterOpenPanel(){
+  theaterPanelOpen = true;
+  document.body.classList.add('panel-active');
+  sidePanel.classList.add('panel-open');
+}
+function theaterClosePanel(){
+  theaterPanelOpen = false;
+  document.body.classList.remove('panel-active');
+  sidePanel.classList.remove('panel-open');
+}
+
+function handleTabClick(tabBtn, list){
+  const inTheater = document.body.classList.contains('theater-mode');
+  const wasActive = tabBtn.classList.contains('active');
+  switchTab({tab:tabBtn, list:list});
+  if(inTheater){
+    // Clicking the already-open tab again closes the panel; clicking any
+    // tab (active or not) while the panel is closed opens it with that
+    // tab's content, matching how a normal click naturally behaves.
+    if(wasActive && theaterPanelOpen) theaterClosePanel();
+    else theaterOpenPanel();
+  }
+}
+tabTracks.addEventListener('click', ()=> handleTabClick(tabTracks, tracklist));
+tabEvents.addEventListener('click', ()=> handleTabClick(tabEvents, eventlist));
+tabSceneMemory.addEventListener('click', ()=> handleTabClick(tabSceneMemory, sceneMemoryList));
+tabEscalations.addEventListener('click', ()=> handleTabClick(tabEscalations, escalationlist));
+
+maximizeBtn.addEventListener('click', ()=>{
+  const entering = !document.body.classList.contains('theater-mode');
+  document.body.classList.toggle('theater-mode');
+  maximizeBtn.textContent = entering ? '⤢' : '⛶';
+  if(!entering) theaterClosePanel(); // exiting theater mode always closes the panel too
+  if(videoLoaded) setTimeout(sizeOverlay, 60); // let the layout settle, then resync the box overlay
+});
+
+theaterScrim.addEventListener('click', theaterClosePanel);
+closePanelBtn.addEventListener('click', theaterClosePanel);
+
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape'){
+    if(theaterPanelOpen) theaterClosePanel();
+    else if(document.body.classList.contains('theater-mode')) maximizeBtn.click();
+  }
+});
+
+function generateAnalysisParagraphs(){
+  if(frames.length===0) return [];
+  const list = Object.values(tracks).sort((a,b)=>a.firstFrame-b.firstFrame);
+  const totalFrames = frames[frames.length-1].frame_index + 1;
+  const durationSec = (totalFrames/fps).toFixed(1);
+  const present = frames.filter(f=>(f.detections||[]).length>0).length;
+  const coverage = ((present/totalFrames)*100).toFixed(0);
+  const paras = [];
+
+  paras.push(`This session covers ${totalFrames} frames (${durationSec}s at ~${fps}fps) and produced ${list.length} track${list.length===1?'':'s'}. A detection was present in ${present} of ${totalFrames} frames (${coverage}% coverage).`);
+
+  list.forEach(t=>{
+    const durSec = ((t.lastFrame-t.firstFrame+1)/fps).toFixed(1);
+    let s = `Track #${t.id} (species guess: ${t.dominantClass}) was active from frame ${t.firstFrame} to ${t.lastFrame} (${durSec}s, ${t.totalFrames} detections). Confidence ranged ${t.minConfidence.toFixed(2)}–${t.maxConfidence.toFixed(2)} (avg ${t.avgConfidence.toFixed(2)}).`;
+    if(t.hasConfirmationData){
+      s += t.trackConfirmed
+        ? ` This track is confirmed as a real, persistent presence (enough frames at high enough confidence), independent of any uncertainty about its species.`
+        : ` This track has not yet accumulated enough frames or confidence to be confirmed as a persistent presence.`;
+    }
+    if(t.stability >= 0.9){
+      s += ` Classification was stable throughout (${(t.stability*100).toFixed(0)}%).`;
+    } else if(t.stability >= 0.7){
+      const others = t.classSeen.filter(c=>c.name!==t.dominantClass).map(c=>c.name).join(', ');
+      s += ` Classification was mostly stable (${(t.stability*100).toFixed(0)}%) with occasional switches to: ${others}.`;
+    } else {
+      const others = t.classSeen.filter(c=>c.name!==t.dominantClass).map(c=>`${c.name} (${c.count}x)`).join(', ');
+      s += ` Classification was unstable: only ${(t.stability*100).toFixed(0)}% of frames agreed on ${t.dominantClass}, with ${t.flickerEvents} switches to: ${others}. This pattern, an object detected consistently but classified inconsistently, typically indicates a difficult case for the classifier (small size, poor lighting, partial occlusion) rather than a false detection.`;
+    }
+    const bboxWidths = t.frames.map(fr=>fr.bbox[2]-fr.bbox[0]);
+    const avgW = bboxWidths.reduce((a,b)=>a+b,0)/bboxWidths.length;
+    if(t.netDisplacement < avgW*0.3){
+      s += ` Net movement across the track was minimal (${t.netDisplacement.toFixed(0)}px against an average box width of ${avgW.toFixed(0)}px), consistent with an animal that stayed largely in place, or worth checking against the video directly to rule out a static false detection.`;
+    } else {
+      s += ` Net movement across the track was ${t.netDisplacement.toFixed(0)}px, consistent with genuine movement.`;
+    }
+    if(t.reacquiredCount > 0){
+      const pct = (t.reacquiredCount/t.totalFrames*100).toFixed(0);
+      s += ` ${t.reacquiredCount} of ${t.totalFrames} detections (${pct}%) came from local re-acquisition, meaning normal detection lost this track at least once and a targeted search recovered it rather than letting the track end.`;
+    }
+    paras.push(s);
+  });
+
+  const gapEvents = events.filter(e=>e.text.startsWith('Detection lost'));
+  if(gapEvents.length>0){
+    paras.push(`Detection was lost entirely (no track active) at ${gapEvents.length} point${gapEvents.length===1?'':'s'} in the session: ${gapEvents.map(e=>e.timestamp_sec.toFixed(1)+'s').join(', ')}.`);
+  }
+
+  return paras;
+}
+
+function renderAnalysisText(){
+  const paras = generateAnalysisParagraphs();
+  analysisText.textContent = paras.join('\n\n');
+}
+
+function buildFullReportText(){
+  const name = expName.value.trim() || 'Untitled experiment';
+  const num = expNumber.value.trim();
+  const date = new Date().toLocaleDateString();
+  const paras = generateAnalysisParagraphs();
+  const titleLine = num ? `EXPERIMENT #${num} — ${name}` : `EXPERIMENT — ${name}`;
+  let out = `${titleLine}\nDate: ${date}\n\n`;
+  out += `ANALYSIS\n${paras.join('\n\n')}\n\n`;
+  out += `TRACK METRICS\n`;
+  Object.values(tracks).sort((a,b)=>a.firstFrame-b.firstFrame).forEach(t=>{
+    out += `#${t.id} ${t.dominantClass} | frames ${t.firstFrame}-${t.lastFrame} | stability ${(t.stability*100).toFixed(0)}% | confidence ${t.minConfidence.toFixed(2)}-${t.maxConfidence.toFixed(2)} (avg ${t.avgConfidence.toFixed(2)}) | switches ${t.flickerEvents} | displacement ${t.netDisplacement.toFixed(0)}px${t.reacquiredCount>0 ? ` | recovered ${t.reacquiredCount}/${t.totalFrames}` : ''}\n`;
+  });
+  out += `\nEVENTS\n`;
+  events.forEach(ev=>{
+    out += `${ev.timestamp_sec.toFixed(1)}s — ${ev.text.replace(/<\/?b>/g,'')}\n`;
+  });
+  return out;
+}
+
+copyBtn.addEventListener('click', ()=>{
+  if(!dataLoaded){ alert('Load detection data first.'); return; }
+  navigator.clipboard.writeText(buildFullReportText()).then(()=>{
+    const orig = copyBtn.textContent;
+    copyBtn.textContent = 'Copied!';
+    setTimeout(()=>{ copyBtn.textContent = orig; }, 1500);
+  });
+});
+
+exportPdfBtn.addEventListener('click', ()=>{
+  if(!dataLoaded){ alert('Load detection data first.'); return; }
+  const name = expName.value.trim() || 'Untitled experiment';
+  const num = expNumber.value.trim();
+  const date = new Date().toLocaleDateString();
+  const paras = generateAnalysisParagraphs();
+  const list = Object.values(tracks).sort((a,b)=>a.firstFrame-b.firstFrame);
+
+  const titleLine = num ? `Experiment #${num} — ${name}` : name;
+  let html = `<h1>${titleLine}</h1>`;
+  html += `<div class="repMeta">Date: ${date} · Video: ${video.src ? (videoInput.files[0]?.name||'loaded video') : '—'} · ${frames.length} frames analyzed</div>`;
+  html += `<h2>Analysis</h2>`;
+  paras.forEach(p=>{ html += `<p>${p}</p>`; });
+
+  html += `<h2>Track metrics</h2><table><tr><th>Track</th><th>Class</th><th>Frames</th><th>Stability</th><th>Confidence</th><th>Switches</th><th>Displacement</th><th>Recovered</th></tr>`;
+  list.forEach(t=>{
+    html += `<tr><td>#${t.id}</td><td>${t.dominantClass}</td><td>${t.firstFrame}-${t.lastFrame} (${t.totalFrames})</td><td>${(t.stability*100).toFixed(0)}%</td><td>${t.minConfidence.toFixed(2)}-${t.maxConfidence.toFixed(2)} (avg ${t.avgConfidence.toFixed(2)})</td><td>${t.flickerEvents}</td><td>${t.netDisplacement.toFixed(0)}px</td><td>${t.reacquiredCount>0 ? `${t.reacquiredCount}/${t.totalFrames}` : '—'}</td></tr>`;
+  });
+  html += `</table>`;
+
+  html += `<h2>Detection coverage</h2><img src="${coverageCanvas.toDataURL('image/png')}">`;
+  html += `<h2>Track timeline</h2><img src="${timelineCanvas.toDataURL('image/png')}">`;
+
+  html += `<h2>Event log</h2>`;
+  events.forEach(ev=>{
+    html += `<div class="repEvent">${ev.timestamp_sec.toFixed(1)}s — ${ev.text}</div>`;
+  });
+
+  reportView.innerHTML = html;
+  window.print();
+});
+
+</script>
+</body>
+</html>
